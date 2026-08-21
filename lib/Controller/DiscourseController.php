@@ -11,6 +11,9 @@ use OCP\IUserManager;
 use OCP\IGroupManager;
 use OCP\IUserSession;
 use OCP\IURLGenerator;
+use OCP\Authentication\IApacheBackend;
+use OCP\User\Backend\ICustomLogout;
+use OCP\Util;
 use Cviebrock\DiscoursePHP\SSOHelper;
 
 class DiscourseController extends Controller {
@@ -172,8 +175,39 @@ class DiscourseController extends Controller {
 	 * @NoCSRFRequired
 	 */
 	public function logout() {
-		$url = \OC_USER::getLogoutUrl($this->urlGenerator);
-		return new RedirectResponse($url . '&returnTo='.$this->config->getAppValue($this->appName, 'clienturl', ''));
+		$url = $this->getLogoutUrl();
+		$returnTo = $this->config->getAppValue($this->appName, 'clienturl', '');
+		$separator = strpos($url, '?') !== false ? '&' : '?';
+		return new RedirectResponse($url . $separator . 'returnTo=' . rawurlencode($returnTo));
+	}
+
+	/**
+	 * Same order as OC_User::getLogoutUrl on Nextcloud 32–34:
+	 * active Apache/SAML backend, then ICustomLogout, then core logout.
+	 */
+	private function getLogoutUrl(): string {
+		foreach ($this->userManager->getBackends() as $backend) {
+			if ($backend instanceof IApacheBackend && $backend->isSessionActive()) {
+				$url = $backend->getLogoutUrl();
+				if ($url !== '') {
+					return $url;
+				}
+			}
+		}
+
+		$user = $this->userSession->getUser();
+		if ($user !== null) {
+			$backend = $user->getBackend();
+			if ($backend instanceof ICustomLogout) {
+				$url = $backend->getLogoutUrl();
+				if ($url !== '') {
+					return $url;
+				}
+			}
+		}
+
+		return $this->urlGenerator->linkToRoute('core.login.logout')
+			. '?requesttoken=' . urlencode(Util::callRegister());
 	}
 
 }
