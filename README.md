@@ -24,6 +24,7 @@ In Discourse:
 - set "discourse connect url" to `https://<YOURNEXTCCLOUD>/index.php/apps/discoursesso`
 - set "discourse connect secret"
 - set override settings to your likings
+- if you want to log out of Nextcloud when logging out of Discourse, set "logout redirect" to `https://<YOURNEXTCCLOUD>/index.php/apps/discoursesso/logout`
 
 In Nextcloud:
 
